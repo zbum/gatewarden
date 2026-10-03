@@ -21,8 +21,7 @@ type options struct {
 	threshold   int
 	banDuration time.Duration
 	allowlist   string
-	nftBinary   string
-	nftTable    string
+	iface       string
 	dryRun      bool
 }
 
@@ -36,14 +35,13 @@ func main() {
 func run() error {
 	var opts options
 	flag.StringVar(&opts.logFile, "log-file", "", "follow this SSH log file instead of journald")
-	flag.StringVar(&opts.journalUnit, "journal-unit", "ssh", "systemd unit to follow (commonly ssh or sshd)")
+	flag.StringVar(&opts.journalUnit, "journal-unit", configuredValue(os.Getenv("GATEWARDEN_JOURNAL_UNIT"), "ssh"), "systemd unit to follow; GATEWARDEN_JOURNAL_UNIT is used when this flag is omitted")
 	flag.DurationVar(&opts.window, "window", 5*time.Minute, "rolling failure window")
 	flag.IntVar(&opts.threshold, "threshold", 5, "failures in the window before blocking")
 	flag.DurationVar(&opts.banDuration, "ban-duration", 15*time.Minute, "duration of a block")
-	flag.StringVar(&opts.allowlist, "allowlist", "127.0.0.0/8,::1/128", "comma-separated IP addresses or CIDRs never blocked")
-	flag.StringVar(&opts.nftBinary, "nft-binary", "nft", "nft executable path")
-	flag.StringVar(&opts.nftTable, "nft-table", "gatewarden", "nftables inet table name")
-	flag.BoolVar(&opts.dryRun, "dry-run", false, "log firewall changes without executing nft")
+	flag.StringVar(&opts.allowlist, "allowlist", configuredValue(os.Getenv("GATEWARDEN_ALLOWLIST"), "127.0.0.0/8,::1/128"), "comma-separated IP addresses or CIDRs never blocked; GATEWARDEN_ALLOWLIST is used when this flag is omitted")
+	flag.StringVar(&opts.iface, "interface", configuredValue(os.Getenv("GATEWARDEN_INTERFACE"), ""), "Ethernet ingress interface for the eBPF/XDP block map; GATEWARDEN_INTERFACE is used when this flag is omitted")
+	flag.BoolVar(&opts.dryRun, "dry-run", false, "log block changes without opening BPF objects")
 	flag.Parse()
 	if opts.window <= 0 || opts.threshold <= 0 || opts.banDuration <= 0 {
 		return errors.New("window, threshold, and ban-duration must be positive")
@@ -53,7 +51,7 @@ func run() error {
 		return err
 	}
 	runner := execRunner{}
-	fw, err := newNFTFirewall(opts.nftBinary, opts.nftTable, opts.dryRun, runner, log.Default())
+	fw, err := newEBPFFirewall(opts.iface, opts.dryRun, log.Default())
 	if err != nil {
 		return err
 	}
@@ -97,4 +95,11 @@ func parseAllowlist(value string) ([]netip.Prefix, error) {
 		result = append(result, prefix.Masked())
 	}
 	return result, nil
+}
+
+func configuredValue(value, fallback string) string {
+	if v := strings.TrimSpace(value); v != "" {
+		return v
+	}
+	return strings.TrimSpace(fallback)
 }

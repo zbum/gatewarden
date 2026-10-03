@@ -1,0 +1,9 @@
+# Ethernet device that receives SSH. Set this to the host interface before start.
+# ip -br link
+GATEWARDEN_INTERFACE=
+
+# Ubuntu and Debian name the OpenSSH service ssh.
+GATEWARDEN_JOURNAL_UNIT=ssh
+
+# Comma-separated addresses or CIDRs that are never blocked.
+GATEWARDEN_ALLOWLIST=127.0.0.0/8,::1/128
