@@ -6,7 +6,7 @@ Name:           gatewarden
 Version:        %{gw_version}
 Release:        %{gw_release}
 Summary:        Blocks repeated failed SSH login sources with eBPF/XDP
-License:        Proprietary
+License:        GPL-2.0-or-later
 URL:            https://nexus.manty.co.kr/repository/yum-hosted/gatewarden/
 BuildArch:      %{gw_arch}
 AutoReqProv:    no
@@ -21,15 +21,18 @@ rm -rf %{buildroot}
 install -d %{buildroot}/usr/bin
 install -d %{buildroot}/usr/lib/systemd/system
 install -d %{buildroot}/etc/gatewarden
+install -d %{buildroot}/usr/share/licenses/gatewarden
 install -m 0755 %{_sourcedir}/gatewarden %{buildroot}/usr/bin/gatewarden
 install -m 0644 %{_sourcedir}/gatewarden.service %{buildroot}/usr/lib/systemd/system/gatewarden.service
 install -m 0644 %{_sourcedir}/gatewarden.sysconfig %{buildroot}/etc/gatewarden/gatewarden.env
+install -m 0644 %{_sourcedir}/LICENSE %{buildroot}/usr/share/licenses/gatewarden/LICENSE
 
 %files
 /usr/bin/gatewarden
 /usr/lib/systemd/system/gatewarden.service
 %dir /etc/gatewarden
 %config(noreplace) /etc/gatewarden/gatewarden.env
+%license /usr/share/licenses/gatewarden/LICENSE
 
 %post
 systemctl daemon-reload >/dev/null 2>&1 || :

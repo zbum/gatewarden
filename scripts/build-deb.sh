@@ -47,10 +47,11 @@ docker run --rm -i \
 set -euo pipefail
 stage=$(mktemp -d)
 trap 'rm -rf "$stage"' EXIT
-mkdir -p "$stage/DEBIAN" "$stage/usr/bin" "$stage/usr/lib/systemd/system" "$stage/etc/gatewarden"
+mkdir -p "$stage/DEBIAN" "$stage/usr/bin" "$stage/usr/lib/systemd/system" "$stage/etc/gatewarden" "$stage/usr/share/doc/gatewarden"
 install -m 0755 "dist/gatewarden-linux-$GOARCH" "$stage/usr/bin/gatewarden"
 install -m 0644 deploy/systemd/gatewarden.service "$stage/usr/lib/systemd/system/gatewarden.service"
 install -m 0644 deploy/debian/gatewarden.default "$stage/etc/gatewarden/gatewarden.env"
+install -m 0644 LICENSE "$stage/usr/share/doc/gatewarden/LICENSE"
 installed=$(du -sk "$stage/usr" "$stage/etc" | awk '{sum += $1} END {print sum}')
 cat > "$stage/DEBIAN/control" <<EOF
 Package: gatewarden

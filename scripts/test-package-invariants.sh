@@ -22,6 +22,11 @@ if grep -Eq '^GATEWARDEN_INTERFACE=.+' deploy/debian/gatewarden.default deploy/r
 	echo 'packages must not guess an interface name' >&2
 	exit 1
 fi
+grep -Fq 'License:        GPL-2.0-or-later' deploy/rpm/gatewarden.spec
+grep -Fq '%license /usr/share/licenses/gatewarden/LICENSE' deploy/rpm/gatewarden.spec
+grep -Fq 'GNU GENERAL PUBLIC LICENSE' LICENSE
+grep -Fq 'either version 2' LICENSE
+grep -Fq 'any later version' LICENSE
 grep -Fq '%config(noreplace) /etc/gatewarden/gatewarden.env' deploy/rpm/gatewarden.spec
 grep -Fq '/etc/gatewarden/gatewarden.env' scripts/build-deb.sh
 grep -Fq 'gatewarden.sysconfig' scripts/build-rpm.sh

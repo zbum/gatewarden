@@ -79,7 +79,19 @@ GATEWARDEN_TEST_EBPF=1 GATEWARDEN_TEST_INTERFACE=eth0 go test -v -run TestKernel
 
 Dependency rationale: [ADR 001](docs/adr/001-ebpf-firewall.md).
 
+## License
+
+Gatewarden is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 2 of the License, or (at your option) any later version. See [LICENSE](LICENSE).
+
 ## Changelog
+
+### 2026-10-03 — feature/ebpf-connection-blocking
+
+- Block repeat SSH failures with eBPF/XDP only. The packaged unit reads `GATEWARDEN_INTERFACE`, `GATEWARDEN_JOURNAL_UNIT`, and `GATEWARDEN_ALLOWLIST` from `/etc/gatewarden/gatewarden.env`.
+- Ubuntu packages default the journal unit to `ssh`. Rocky and RHEL packages default it to `sshd`. The interface name is left empty until the operator sets it.
+- Add IPv4/IPv6 block maps, VLAN parsing, portable lifecycle tests, and opt-in Linux kernel tests. Failure detection remains OpenSSH authentication-log parsing.
+- Depend on `github.com/cilium/ebpf`. Enforcement needs Linux with XDP BPF-link support (upstream 5.9+).
+- License the project under GPL-2.0-or-later.
 
 - 2026-10-03 (`feature/ebpf-connection-blocking`): block repeat SSH failures with
   eBPF/XDP only. Add explicit interface selection, IPv4/IPv6 block maps, VLAN
@@ -88,3 +100,4 @@ Dependency rationale: [ADR 001](docs/adr/001-ebpf-firewall.md).
   journal unit, and allowlist from `/etc/gatewarden/gatewarden.env`. Ubuntu
   packages default the journal unit to `ssh`; Rocky and RHEL packages default
   it to `sshd`.
+- 2026-10-03: license the project under GPL-2.0-or-later.

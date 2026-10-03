@@ -51,6 +51,7 @@ mkdir -p "$top"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 cp "dist/gatewarden-linux-$GOARCH" "$top/SOURCES/gatewarden"
 cp deploy/systemd/gatewarden.service "$top/SOURCES/gatewarden.service"
 cp deploy/rpm/gatewarden.sysconfig "$top/SOURCES/gatewarden.sysconfig"
+cp LICENSE "$top/SOURCES/LICENSE"
 cp deploy/rpm/gatewarden.spec "$top/SPECS/gatewarden.spec"
 rpmbuild -bb \
 	--define "_topdir $top" \
