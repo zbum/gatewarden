@@ -47,23 +47,24 @@ docker run --rm -i \
 set -euo pipefail
 stage=$(mktemp -d)
 trap 'rm -rf "$stage"' EXIT
-mkdir -p "$stage/DEBIAN" "$stage/usr/bin" "$stage/usr/lib/systemd/system"
+mkdir -p "$stage/DEBIAN" "$stage/usr/bin" "$stage/usr/lib/systemd/system" "$stage/etc/gatewarden" "$stage/usr/share/doc/gatewarden"
 install -m 0755 "dist/gatewarden-linux-$GOARCH" "$stage/usr/bin/gatewarden"
 install -m 0644 deploy/systemd/gatewarden.service "$stage/usr/lib/systemd/system/gatewarden.service"
-installed=$(du -sk "$stage/usr" | awk '{sum += $1} END {print sum}')
+install -m 0644 deploy/debian/gatewarden.default "$stage/etc/gatewarden/gatewarden.env"
+install -m 0644 LICENSE "$stage/usr/share/doc/gatewarden/LICENSE"
+installed=$(du -sk "$stage/usr" "$stage/etc" | awk '{sum += $1} END {print sum}')
 cat > "$stage/DEBIAN/control" <<EOF
 Package: gatewarden
 Version: $DEB_VERSION
 Architecture: $DEB_ARCH
 Maintainer: gatewarden <gatewarden@manty.co.kr>
 Installed-Size: $installed
-Depends: nftables
 Section: net
 Priority: optional
 Homepage: https://nexus.manty.co.kr/repository/apt-hosted/
-Description: Blocks repeated failed SSH login sources with nftables
+Description: Blocks repeated failed SSH login sources with eBPF/XDP
  Gatewarden follows OpenSSH authentication failures and temporarily blocks
- repeat offenders in a dedicated nftables table.
+ repeat offenders with an eBPF/XDP map on the configured Ethernet interface.
  The package does not enable or start the service.
 EOF
 cat > "$stage/DEBIAN/postinst" <<'EOF'
@@ -87,6 +88,7 @@ if [ "$1" = "upgrade" ]; then
 fi
 EOF
 chmod 0755 "$stage/DEBIAN/postinst" "$stage/DEBIAN/prerm" "$stage/DEBIAN/postrm"
+printf '%s\n' /etc/gatewarden/gatewarden.env > "$stage/DEBIAN/conffiles"
 mkdir -p /work/dist/deb
 dpkg-deb --root-owner-group --build "$stage" "/work/dist/deb/gatewarden_${DEB_VERSION}_${DEB_ARCH}.deb"
 EOS
