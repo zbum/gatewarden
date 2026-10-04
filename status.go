@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -29,6 +30,14 @@ type blockView struct {
 	Permanent bool      `json:"permanent,omitzero"`
 }
 
+type sessionView struct {
+	User  string    `json:"user"`
+	IP    string    `json:"ip"`
+	Port  uint16    `json:"port"`
+	PID   int       `json:"pid,omitempty"`
+	Since time.Time `json:"since"`
+}
+
 func newStatusHandler(m *manager) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /metrics", func(w http.ResponseWriter, _ *http.Request) {
@@ -38,6 +47,9 @@ func newStatusHandler(m *manager) http.Handler {
 	mux.HandleFunc("GET /blocks", func(w http.ResponseWriter, _ *http.Request) {
 		writeBlocks(w, m.status())
 	})
+	mux.HandleFunc("GET /sessions", func(w http.ResponseWriter, _ *http.Request) {
+		writeSessions(w, m.status())
+	})
 	return mux
 }
 
@@ -45,6 +57,9 @@ func newControlHandler(m *manager) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /blocks", func(w http.ResponseWriter, _ *http.Request) {
 		writeBlocks(w, m.status())
+	})
+	mux.HandleFunc("GET /sessions", func(w http.ResponseWriter, _ *http.Request) {
+		writeSessions(w, m.status())
 	})
 	mux.HandleFunc("POST /unblock", func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
@@ -79,6 +94,23 @@ func writeBlocks(w http.ResponseWriter, snapshot statusSnapshot) {
 	}
 }
 
+func writeSessions(w http.ResponseWriter, snapshot statusSnapshot) {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(sessionViews(snapshot)); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func sessionViews(snapshot statusSnapshot) []sessionView {
+	views := make([]sessionView, 0, len(snapshot.Sessions))
+	for _, session := range snapshot.Sessions {
+		views = append(views, sessionView{
+			User: session.User, IP: session.Addr.String(), Port: session.Port, PID: session.PID, Since: session.Since.UTC(),
+		})
+	}
+	return views
+}
+
 func blockViews(snapshot statusSnapshot) []blockView {
 	views := make([]blockView, 0, len(snapshot.Blocks))
 	for _, block := range snapshot.Blocks {
@@ -104,6 +136,15 @@ func writeMetrics(w io.Writer, snapshot statusSnapshot) {
 	fmt.Fprintf(w, "# HELP gatewarden_failures_total Counted authentication failures since the process started.\n")
 	fmt.Fprintf(w, "# TYPE gatewarden_failures_total counter\n")
 	fmt.Fprintf(w, "gatewarden_failures_total %d\n", snapshot.FailuresTotal)
+	fmt.Fprintf(w, "# HELP gatewarden_sessions_current SSH sessions currently open.\n")
+	fmt.Fprintf(w, "# TYPE gatewarden_sessions_current gauge\n")
+	fmt.Fprintf(w, "gatewarden_sessions_current %d\n", len(snapshot.Sessions))
+	fmt.Fprintf(w, "# HELP gatewarden_session_since_seconds Unix time when an open SSH session was accepted.\n")
+	fmt.Fprintf(w, "# TYPE gatewarden_session_since_seconds gauge\n")
+	for _, session := range snapshot.Sessions {
+		fmt.Fprintf(w, "gatewarden_session_since_seconds{user=%s,ip=%s,port=%s} %d\n",
+			prometheusLabel(session.User), prometheusLabel(session.Addr.String()), prometheusLabel(strconv.Itoa(int(session.Port))), session.Since.UTC().Unix())
+	}
 	permanent := 0
 	for _, block := range snapshot.Blocks {
 		if block.Permanent {
@@ -143,6 +184,23 @@ func prometheusLabel(value string) string {
 	}
 	b.WriteByte('"')
 	return b.String()
+}
+
+func runSessions(args []string) error {
+	socket, _, err := controlFlags("sessions", args)
+	if err != nil || socket == "" {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	sessions, err := fetchSessionsWith(ctx, socketClient(socket), "http://gatewarden")
+	if err != nil {
+		if socketUnavailable(err) {
+			return fmt.Errorf("daemon socket %s is unavailable; open SSH sessions are known only while gatewarden is running", socket)
+		}
+		return err
+	}
+	return printSessions(os.Stdout, sessions)
 }
 
 func runBlocks(args []string) error {
@@ -244,6 +302,30 @@ func socketClient(path string) *http.Client {
 	}}
 }
 
+func fetchSessionsWith(ctx context.Context, client *http.Client, baseURL string) ([]sessionView, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(baseURL, "/")+"/sessions", nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("read sessions from %s: %w", baseURL, err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("read sessions from %s: %s", baseURL, strings.TrimSpace(string(body)))
+	}
+	var sessions []sessionView
+	if err := json.Unmarshal(body, &sessions); err != nil {
+		return nil, fmt.Errorf("decode sessions from %s: %w", baseURL, err)
+	}
+	return sessions, nil
+}
+
 func fetchBlocks(ctx context.Context, baseURL string) ([]blockView, error) {
 	return fetchBlocksWith(ctx, http.DefaultClient, baseURL)
 }
@@ -294,6 +376,19 @@ func pardonRemote(ctx context.Context, socket string, addr netip.Addr) error {
 	}
 	text, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 	return fmt.Errorf("pardon %s: %s", addr, strings.TrimSpace(string(text)))
+}
+
+func printSessions(w io.Writer, sessions []sessionView) error {
+	if len(sessions) == 0 {
+		_, err := fmt.Fprintln(w, "no open ssh sessions")
+		return err
+	}
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "USER\tIP\tPORT\tPID\tSINCE")
+	for _, session := range sessions {
+		fmt.Fprintf(tw, "%s\t%s\t%d\t%d\t%s\n", session.User, session.IP, session.Port, session.PID, session.Since.UTC().Format(time.RFC3339))
+	}
+	return tw.Flush()
 }
 
 func printBlocks(w io.Writer, blocks []blockView) error {

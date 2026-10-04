@@ -12,6 +12,8 @@ grep -Fq 'EnvironmentFile=-/etc/gatewarden/gatewarden.env' deploy/systemd/gatewa
 grep -Fq 'ExecStart=/usr/bin/gatewarden' deploy/systemd/gatewarden.service
 grep -Fq 'After=network-online.target ssh.service sshd.service' deploy/systemd/gatewarden.service
 grep -Fq 'CapabilityBoundingSet=CAP_BPF CAP_NET_ADMIN' deploy/systemd/gatewarden.service
+grep -Fq 'CapabilityBoundingSet=CAP_PERFMON' deploy/systemd/gatewarden.service
+grep -Fq 'AmbientCapabilities=CAP_PERFMON' deploy/systemd/gatewarden.service
 if grep -Eq 'eth0|-journal-unit|-interface' deploy/systemd/gatewarden.service; then
 	echo 'unit must take the interface and journal unit from the environment file' >&2
 	exit 1

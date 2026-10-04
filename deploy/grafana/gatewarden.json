@@ -44,7 +44,7 @@
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
       "id": 1,
       "options": {
         "colorMode": "background",
@@ -85,7 +85,7 @@
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
       "id": 2,
       "options": {
         "colorMode": "background",
@@ -125,7 +125,7 @@
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
       "id": 3,
       "options": {
         "colorMode": "background",
@@ -144,6 +144,47 @@
         }
       ],
       "title": "영구 차단",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "description": "지금 열려 있는 SSH 세션 수입니다.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "blue", "value": 1},
+              {"color": "yellow", "value": 3}
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "id": 13,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "expr": "sum(gatewarden_sessions_current{job=~\"$job\"}) or vector(0)",
+          "legendFormat": "sessions",
+          "refId": "A"
+        }
+      ],
+      "title": "접속 중",
       "type": "stat"
     },
     {
@@ -484,6 +525,44 @@
       ],
       "title": "시작 이후 만료",
       "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "description": "지금 열려 있는 SSH 세션입니다. 사용자, 출발지, 클라이언트 포트, 접속 시각을 보고 예상 밖 접속을 확인합니다.",
+      "fieldConfig": {
+        "defaults": {"custom": {"align": "auto", "cellOptions": {"type": "auto"}, "filterable": true}, "mappings": []},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "user"}, "properties": [{"id": "displayName", "value": "사용자"}]},
+          {"matcher": {"id": "byName", "options": "ip"}, "properties": [{"id": "displayName", "value": "출발지"}]},
+          {"matcher": {"id": "byName", "options": "port"}, "properties": [{"id": "displayName", "value": "포트"}]},
+          {"matcher": {"id": "byName", "options": "instance"}, "properties": [{"id": "displayName", "value": "대상"}]},
+          {"matcher": {"id": "byName", "options": "Value"}, "properties": [{"id": "displayName", "value": "접속 시각"}, {"id": "unit", "value": "dateTimeAsIso"}]}
+        ]
+      },
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 25},
+      "id": 12,
+      "options": {"cellHeight": "sm", "showHeader": true, "sortBy": [{"desc": true, "displayName": "접속 시각"}]},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "expr": "gatewarden_session_since_seconds{job=~\"$job\"} * 1000",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "접속 중인 SSH",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {"Time": true, "__name__": true, "job": true},
+            "indexByName": {"user": 0, "ip": 1, "port": 2, "instance": 3, "Value": 4},
+            "renameByName": {}
+          }
+        }
+      ],
+      "type": "table"
     }
   ],
   "refresh": "15s",
@@ -514,5 +593,5 @@
   "timezone": "browser",
   "title": "Gatewarden",
   "uid": "gatewarden",
-  "version": 1
+  "version": 4
 }
