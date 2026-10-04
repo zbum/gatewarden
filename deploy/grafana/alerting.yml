@@ -1,0 +1,261 @@
+# Grafana unified-alerting rules for Gatewarden.
+#
+# Copy this file to the host directory mounted at
+# /etc/grafana/provisioning/alerting and restart Grafana.
+# The Prometheus datasource UID below is the ubuntu-home Grafana source
+# named prometheus (df4aiwvzgcu80e). Replace it when importing elsewhere.
+# Query models are stored literally, so a dashboard placeholder such as
+# ${DS_PROMETHEUS} is not substituted here.
+#
+# This file does not define contact points or notification policies.
+# Each rule sets notification_settings.receiver to the existing contact
+# point slack-manty-infra. Creating that contact point, and the default
+# route, stays outside this file.
+#
+# Ordinary SSH scan noise stays below these thresholds. A recent ubuntu-home
+# sample stayed near 10 concurrent blocks, so the surge rule uses 25.
+
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: gatewarden
+    folder: Gatewarden
+    interval: 1m
+    rules:
+      - uid: gw_scrape_down
+        title: Gatewarden 지표 수집 중단
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: df4aiwvzgcu80e
+            model:
+              datasource:
+                type: prometheus
+                uid: df4aiwvzgcu80e
+              editorMode: code
+              expr: up{job="gatewarden"}
+              instant: true
+              intervalMs: 15000
+              legendFormat: up
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 1
+                    type: lt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: C
+              type: threshold
+        dashboardUid: gatewarden
+        panelId: 1
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 2m
+        annotations:
+          summary: Gatewarden Prometheus 수집이 2분 이상 끊겼습니다.
+          description: job이 gatewarden인 up 시리즈가 1보다 작거나 없습니다. gatewarden 프로세스와 GATEWARDEN_METRICS_ADDR 수신 주소를 확인하세요.
+        labels:
+          severity: critical
+          service: gatewarden
+        isPaused: false
+        notification_settings:
+          receiver: slack-manty-infra
+
+      - uid: gw_permanent
+        title: Gatewarden 영구 차단 발생
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: df4aiwvzgcu80e
+            model:
+              datasource:
+                type: prometheus
+                uid: df4aiwvzgcu80e
+              editorMode: code
+              expr: sum(gatewarden_permanent_current{job="gatewarden"})
+              instant: true
+              intervalMs: 15000
+              legendFormat: permanent
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: C
+              type: threshold
+        dashboardUid: gatewarden
+        panelId: 3
+        noDataState: OK
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: 영구 차단된 주소가 있습니다.
+          description: gatewarden_permanent_current가 0보다 큽니다. gatewarden blocks로 주소를 확인하고, 의도된 차단이 아니면 gatewarden unblock으로 해제하세요.
+        labels:
+          severity: warning
+          service: gatewarden
+        isPaused: false
+        notification_settings:
+          receiver: slack-manty-infra
+
+      - uid: gw_block_surge
+        title: Gatewarden 동시 차단 급증
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: df4aiwvzgcu80e
+            model:
+              datasource:
+                type: prometheus
+                uid: df4aiwvzgcu80e
+              editorMode: code
+              expr: sum(gatewarden_blocked_current{job="gatewarden"})
+              instant: true
+              intervalMs: 15000
+              legendFormat: blocked
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 25
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: C
+              type: threshold
+        dashboardUid: gatewarden
+        panelId: 1
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: 동시에 차단된 주소가 25개를 10분 이상 넘겼습니다.
+          description: 평소 동시 차단은 이보다 적습니다. 대시보드의 지금 차단 패널에서 스캔이 몰렸는지, 차단이 풀리지 않는지 확인하세요.
+        labels:
+          severity: warning
+          service: gatewarden
+        isPaused: false
+        notification_settings:
+          receiver: slack-manty-infra

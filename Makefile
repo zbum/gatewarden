@@ -53,13 +53,22 @@ checksums:
 		fi
 
 install: build-linux
-	install -d $(DESTDIR)$(prefix)/bin $(DESTDIR)$(systemdunitdir)
+	install -d $(DESTDIR)$(prefix)/bin $(DESTDIR)$(systemdunitdir) $(DESTDIR)$(prefix)/share/licenses/$(BINARY)
 	install -m 0755 $(DIST_DIR)/$(BINARY)-linux-$(GOARCH) $(DESTDIR)$(prefix)/bin/$(BINARY)
 	install -m 0644 deploy/systemd/$(BINARY).service $(DESTDIR)$(systemdunitdir)/$(BINARY).service
+	install -m 0644 LICENSE $(DESTDIR)$(prefix)/share/licenses/$(BINARY)/LICENSE
+	install -d $(DESTDIR)/etc/gatewarden
+	if [ -f /etc/redhat-release ] || [ -d /etc/sysconfig ]; then \
+		config=deploy/rpm/$(BINARY).sysconfig; \
+	else \
+		config=deploy/debian/$(BINARY).default; \
+	fi; \
+	test -e $(DESTDIR)/etc/gatewarden/$(BINARY).env || install -m 0644 $$config $(DESTDIR)/etc/gatewarden/$(BINARY).env
 
 uninstall:
 	rm -f $(DESTDIR)$(prefix)/bin/$(BINARY) \
-		$(DESTDIR)$(systemdunitdir)/$(BINARY).service
+		$(DESTDIR)$(systemdunitdir)/$(BINARY).service \
+		$(DESTDIR)$(prefix)/share/licenses/$(BINARY)/LICENSE
 
 package-images: package-image-deb package-image-rpm
 

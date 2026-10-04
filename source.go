@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os/exec"
 )
 
 type lineSource interface {
@@ -13,6 +14,17 @@ type lineSource interface {
 type commandRunner interface {
 	Run(context.Context, string, []string, io.Reader, io.Writer) error
 }
+
+type execRunner struct{}
+
+func (execRunner) Run(ctx context.Context, name string, args []string, stdin io.Reader, stdout io.Writer) error {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Stdin = stdin
+	cmd.Stdout = stdout
+	cmd.Stderr = stdout
+	return cmd.Run()
+}
+
 type processSource struct {
 	runner commandRunner
 	name   string

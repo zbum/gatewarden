@@ -1,19 +1,24 @@
 [Unit]
 Description=Gatewarden SSH failure blocker
 Documentation=https://github.com/zbum/gatewarden
-After=network.target ssh.service
+After=network-online.target ssh.service sshd.service
+Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/gatewarden -journal-unit ssh -threshold 5 -window 5m -ban-duration 15m
+EnvironmentFile=-/etc/gatewarden/gatewarden.env
+ExecStart=/usr/bin/gatewarden
 Restart=on-failure
 RestartSec=5s
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-CapabilityBoundingSet=CAP_NET_ADMIN
-AmbientCapabilities=CAP_NET_ADMIN
+StateDirectory=gatewarden
+RuntimeDirectory=gatewarden
+CapabilityBoundingSet=CAP_BPF CAP_NET_ADMIN
+AmbientCapabilities=CAP_BPF CAP_NET_ADMIN
+LimitMEMLOCK=infinity
 
 [Install]
 WantedBy=multi-user.target
