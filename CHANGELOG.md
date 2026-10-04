@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### 2026-10-04 — Nexus install guide
+
+- Document installation from the Nexus apt repository `apt-hosted` and the yum repository `yum-hosted/gatewarden/` at https://nexus.manty.co.kr.
+- Show the Grafana dashboard on the README.
+
+### 2026-10-04 — feature/grafana-alerts
+
+- Add Grafana alert rules at `deploy/grafana/alerting.yml`. A missing scrape, any permanent block, and more than 25 concurrent blocks notify the existing contact point `slack-manty-infra`.
+
 ### 2026-10-04 — feature/grafana-dashboard
 
 - Add a Grafana dashboard for the Prometheus series at `deploy/grafana/gatewarden.json`.
