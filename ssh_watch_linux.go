@@ -121,15 +121,15 @@ func (w *sshWatch) attachAccept(enter, exit, enterName, exitName string) error {
 	if err != nil {
 		return fmt.Errorf("attach SSH session tracepoint: %w", err)
 	}
-	argsOff, err := fieldAt(enterFormat, "args", 48)
+	sockOff, err := sockaddrArgOffset(enterFormat)
 	if err != nil {
-		return err
+		return fmt.Errorf("attach SSH session tracepoint: %w", err)
 	}
 	retOff, err := fieldAt(exitFormat, "ret", 8)
 	if err != nil {
 		return err
 	}
-	enterProg, err := loadTrace(enterName, acceptEnterProgram(w.acceptPtrs.FD(), argsOff+8))
+	enterProg, err := loadTrace(enterName, acceptEnterProgram(w.acceptPtrs.FD(), sockOff))
 	if err != nil {
 		return err
 	}

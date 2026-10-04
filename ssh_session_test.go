@@ -125,6 +125,26 @@ func TestParseProcNetAndStart(t *testing.T) {
 	}
 }
 
+func TestSockaddrArgOffset(t *testing.T) {
+	format := "" +
+		"field:int __syscall_nr;\toffset:8;\tsize:4;\tsigned:1;\n" +
+		"field:int fd;\toffset:16;\tsize:8;\tsigned:0;\n" +
+		"field:struct sockaddr * upeer_sockaddr;\toffset:24;\tsize:8;\tsigned:0;\n" +
+		"field:int * upeer_addrlen;\toffset:32;\tsize:8;\tsigned:0;\n" +
+		"print fmt: \"upeer_sockaddr: 0x%08lx\", ((unsigned long)(REC->upeer_sockaddr))\n"
+	offset, err := sockaddrArgOffset(format)
+	if err != nil || offset != 24 {
+		t.Fatalf("offset = %d %v", offset, err)
+	}
+	if _, err := sockaddrArgOffset("field:unsigned long args[6];\toffset:16;\tsize:48;\tsigned:0;\n"); err == nil {
+		t.Fatal("raw args array was accepted")
+	}
+	wide := "field:struct sockaddr * upeer_sockaddr;\toffset:24;\tsize:4;\tsigned:0;\n"
+	if _, err := sockaddrArgOffset(wide); err == nil {
+		t.Fatal("4-byte sockaddr field was accepted")
+	}
+}
+
 func TestFieldOffsetIgnoresLongerNames(t *testing.T) {
 	format := "" +
 		"field:int common_pid;\toffset:4;\tsize:4;\tsigned:1;\n" +

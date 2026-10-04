@@ -245,6 +245,20 @@ func parseProcStart(stat string, btime int64) (time.Time, bool) {
 	return time.Unix(seconds, nanos).UTC(), true
 }
 
+// sockaddrArgOffset is the trace context offset of the user sockaddr pointer
+// on sys_enter_accept and sys_enter_accept4. Those events name that pointer
+// upeer_sockaddr. They do not carry the raw_syscalls args[6] array.
+func sockaddrArgOffset(format string) (int, error) {
+	offset, size, err := fieldOffset(format, "upeer_sockaddr")
+	if err != nil {
+		return 0, err
+	}
+	if offset < 0 || size != 8 || offset+size > 4096 {
+		return 0, fmt.Errorf("tracepoint field upeer_sockaddr offset %d size %d", offset, size)
+	}
+	return offset, nil
+}
+
 func fieldOffset(format, field string) (offset, size int, err error) {
 	pattern := `(?m)(?:^|[^\w])` + regexp.QuoteMeta(field) + `(?:\[\d+\])?;\s*offset:(\d+);\s*size:(\d+);`
 	match := regexp.MustCompile(pattern).FindStringSubmatch(format)

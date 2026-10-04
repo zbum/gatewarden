@@ -23,16 +23,15 @@ func sshCommGate() asm.Instructions {
 	}
 }
 
-// acceptEnterProgram saves the user sockaddr pointer from args[1], keyed by
-// the accepting pid/tgid. args1 is the byte offset of that pointer in the
-// tracepoint context.
-func acceptEnterProgram(ptrFD, args1 int) asm.Instructions {
+// acceptEnterProgram saves the user sockaddr pointer, keyed by the accepting
+// pid/tgid. sockOff is the byte offset of that pointer in the tracepoint context.
+func acceptEnterProgram(ptrFD, sockOff int) asm.Instructions {
 	ins := asm.Instructions{asm.Mov.Reg(asm.R6, asm.R1)}
 	ins = append(ins, sshCommGate()...)
 	return append(ins,
 		asm.FnGetCurrentPidTgid.Call().WithSymbol("sshd_ok"),
 		asm.StoreMem(asm.RFP, -8, asm.R0, asm.DWord),
-		asm.LoadMem(asm.R2, asm.R6, int16(args1), asm.DWord),
+		asm.LoadMem(asm.R2, asm.R6, int16(sockOff), asm.DWord),
 		asm.StoreMem(asm.RFP, -16, asm.R2, asm.DWord),
 		asm.LoadMapPtr(asm.R1, ptrFD),
 		asm.Mov.Reg(asm.R2, asm.RFP),
