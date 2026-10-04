@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.2 — 2026-10-05
 
 - Watch open SSH sessions with eBPF tracepoints on `accept` and `accept4`, the following fork, and process exit. The user name comes from the session process login uid. `sshd` processes that already exist are read once from `/proc` at startup. `gatewarden sessions` and `GET /sessions` show the user, source IP, client port, process id, and start time. `gatewarden_sessions_current` and `gatewarden_session_since_seconds{user,ip,port}` expose the same list. Authentication failures still come from the journal or `-log-file`, and lines written before startup are not counted.
 
