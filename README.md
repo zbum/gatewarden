@@ -36,7 +36,7 @@ sudo dnf install gatewarden
 
 ## Run
 
-eBPF needs an Ethernet ingress interface, Linux XDP BPF-link support (upstream 5.9+), and `CAP_BPF` plus `CAP_NET_ADMIN`. Start with dry-run mode to validate settings without attaching the XDP program:
+eBPF needs an Ethernet ingress interface, Linux XDP BPF-link support (upstream 5.9+), and `CAP_BPF`, `CAP_NET_ADMIN`, and `CAP_PERFMON`. Start with dry-run mode to validate settings without attaching the XDP program:
 
 ```sh
 sudo ./dist/gatewarden-linux-amd64 -interface eth0 -dry-run -journal-unit ssh
@@ -107,7 +107,7 @@ sudo systemctl enable --now gatewarden
 journalctl -u gatewarden -f
 ```
 
-The packaged unit reads `/etc/gatewarden/gatewarden.env` and passes no interface name of its own. Ubuntu packages default the journal unit to `ssh`. Rocky and RHEL packages default it to `sshd`. Set the interface to the host device, listed by `ip -br link`, before starting. The unit grants `CAP_BPF` and `CAP_NET_ADMIN`, allows unlimited locked memory, and uses a read-only filesystem view. `StateDirectory=gatewarden` and `RuntimeDirectory=gatewarden` provide `/var/lib/gatewarden` and `/run/gatewarden`. The unit restarts after unexpected failures. Packages deliberately do not enable or start Gatewarden. See [INSTALL.md](INSTALL.md).
+The packaged unit reads `/etc/gatewarden/gatewarden.env` and passes no interface name of its own. Ubuntu packages default the journal unit to `ssh`. Rocky and RHEL packages default it to `sshd`. Set the interface to the host device, listed by `ip -br link`, before starting. The unit grants `CAP_BPF`, `CAP_NET_ADMIN`, and `CAP_PERFMON`, allows unlimited locked memory, and uses a read-only filesystem view. `StateDirectory=gatewarden` and `RuntimeDirectory=gatewarden` provide `/var/lib/gatewarden` and `/run/gatewarden`. The unit restarts after unexpected failures. Packages deliberately do not enable or start Gatewarden. See [INSTALL.md](INSTALL.md).
 
 ## eBPF behavior and verification
 
