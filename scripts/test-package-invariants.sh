@@ -18,6 +18,13 @@ if grep -Eq 'eth0|-journal-unit|-interface' deploy/systemd/gatewarden.service; t
 fi
 grep -Fq 'GATEWARDEN_JOURNAL_UNIT=ssh' deploy/debian/gatewarden.default
 grep -Fq 'GATEWARDEN_JOURNAL_UNIT=sshd' deploy/rpm/gatewarden.sysconfig
+grep -Fq 'StateDirectory=gatewarden' deploy/systemd/gatewarden.service
+grep -Fq 'RuntimeDirectory=gatewarden' deploy/systemd/gatewarden.service
+grep -Fq 'GATEWARDEN_METRICS_ADDR=127.0.0.1:9477' deploy/debian/gatewarden.default deploy/rpm/gatewarden.sysconfig
+grep -Fq 'GATEWARDEN_PERMANENT_AFTER=3' deploy/debian/gatewarden.default deploy/rpm/gatewarden.sysconfig
+grep -Fq 'GATEWARDEN_PERMANENT_WINDOW=24h' deploy/debian/gatewarden.default deploy/rpm/gatewarden.sysconfig
+grep -Fq 'GATEWARDEN_STATE_FILE=/var/lib/gatewarden/state.json' deploy/debian/gatewarden.default deploy/rpm/gatewarden.sysconfig
+grep -Fq 'GATEWARDEN_SOCKET=/run/gatewarden/gatewarden.sock' deploy/debian/gatewarden.default deploy/rpm/gatewarden.sysconfig
 if grep -Eq '^GATEWARDEN_INTERFACE=.+' deploy/debian/gatewarden.default deploy/rpm/gatewarden.sysconfig; then
 	echo 'packages must not guess an interface name' >&2
 	exit 1
