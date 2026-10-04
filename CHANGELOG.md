@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### 2026-10-04 — feature/grafana-dashboard
+
+- Add a Grafana dashboard for the Prometheus series at `deploy/grafana/gatewarden.json`.
+
 ### 2026-10-04 — feature/block-status-metrics
 
 - Publish `/metrics` and a read-only `/blocks` list on `127.0.0.1:9477`.

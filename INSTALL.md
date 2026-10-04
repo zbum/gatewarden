@@ -109,6 +109,8 @@ curl -s 127.0.0.1:9477/metrics
 
 `gatewarden_blocked_current`는 임시 차단과 영구 차단을 합친 수입니다. `gatewarden_permanent_current`와 `gatewarden_permanent{ip="..."}`는 영구 차단입니다. `gatewarden_block_until_seconds{ip="..."}`는 임시 차단의 만료 시각입니다.
 
+Grafana에서는 `deploy/grafana/gatewarden.json`을 가져옵니다. 가져올 때 Prometheus 데이터 소스를 고르면 됩니다. Job 변수 기본값은 `gatewarden`입니다. 화면의 누적 수는 gatewarden 프로세스가 다시 시작되면 0부터 셉니다.
+
 ## 영구 차단
 
 같은 주소가 `GATEWARDEN_PERMANENT_WINDOW`(기본 24시간) 안에 임시 차단을 `GATEWARDEN_PERMANENT_AFTER`(기본 3)번 받으면, 그 횟수에 도달한 차단부터 만료 없이 유지됩니다. 한 번의 차단은 실패 횟수가 임계값에 도달한 사건입니다. 창 밖으로 벗어난 이전 차단은 횟수에서 빠집니다. `GATEWARDEN_PERMANENT_AFTER=0`이면 영구 차단을 쓰지 않습니다.
