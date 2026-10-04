@@ -1,8 +1,6 @@
 # Changelog
 
-## Unreleased
-
-### 2026-10-04 — feature/block-status-metrics
+## 0.2.0 — 2026-10-04
 
 - Publish `/metrics` and a read-only `/blocks` list on `127.0.0.1:9477`.
 - Promote an address to a permanent block when it reaches `GATEWARDEN_PERMANENT_AFTER` bans (default 3) inside `GATEWARDEN_PERMANENT_WINDOW` (default 24h). `0` disables promotion.
