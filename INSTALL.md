@@ -1,21 +1,50 @@
 # 설치와 운영
 
-Gatewarden 패키지는 Ubuntu 22.04 이상과 Rocky Linux 8 / RHEL 8 계열을 대상으로 합니다. 설치 과정은 서비스를 자동으로 enable/start하지 않습니다. 원격 접속이 끊기지 않도록 관리 IP를 allowlist에 추가하고 `-dry-run`으로 먼저 검증한 뒤 직접 시작하십시오.
+Gatewarden 패키지는 Ubuntu 22.04 이상과 Rocky Linux 8 / RHEL 8 계열을 대상으로 합니다. 설치는 [https://nexus.manty.co.kr](https://nexus.manty.co.kr)의 apt, yum 저장소를 사용합니다. 처음 설치하면 서비스는 멈춰 있습니다. 원격 접속이 끊기지 않도록 관리 IP를 allowlist에 추가하고 `-dry-run`으로 먼저 검증한 뒤 직접 시작하십시오. 업그레이드하면 이미 실행 중인 서비스를 다시 시작합니다.
 
-## Ubuntu (apt)
+## Nexus 저장소에서 설치
 
-Nexus `apt-hosted` 저장소의 Distribution은 기본적으로 `stable`입니다. 저장소 관리자가 제공한 공개 키를 등록합니다.
+### Ubuntu (apt)
+
+패키지는 `https://nexus.manty.co.kr/repository/apt-hosted/`에 있습니다. Distribution은 `stable`, Component는 `main`입니다. 메타데이터 서명 키는 [`deploy/apt/public.gpg.key`](deploy/apt/public.gpg.key)입니다. 지문은 `D9B2 41C5 43B7 6D68 4C7D 8B46 EC22 3AF2 F5C7 8607`입니다.
+
+이미 이 주소의 `stable main` 항목이 있으면 `sudo apt update` 다음 `sudo apt install gatewarden`으로 설치합니다.
 
 ```bash
+sudo apt update
+sudo apt install -y ca-certificates curl gnupg
+curl --fail --silent --show-error --location \
+  https://raw.githubusercontent.com/zbum/net-scouter/main/deploy/apt/public.gpg.key \
+  --output /tmp/manty-apt.gpg.key
 sudo install -d -m 0755 /etc/apt/keyrings
-sudo gpg --dearmor -o /etc/apt/keyrings/manty-apt.gpg < public.gpg.key
+sudo gpg --batch --yes --dearmor \
+  --output /etc/apt/keyrings/manty-apt.gpg /tmp/manty-apt.gpg.key
+sudo chmod 0644 /etc/apt/keyrings/manty-apt.gpg
 echo 'deb [signed-by=/etc/apt/keyrings/manty-apt.gpg] https://nexus.manty.co.kr/repository/apt-hosted/ stable main' \
   | sudo tee /etc/apt/sources.list.d/gatewarden.list
 sudo apt update
 sudo apt install gatewarden
 ```
 
-## Rocky Linux / RHEL (yum/dnf)
+이 저장소를 클론했다면 키 파일로 `deploy/apt/public.gpg.key`를 사용합니다.
+
+```bash
+sudo install -d -m 0755 /etc/apt/keyrings
+sudo gpg --batch --yes --dearmor \
+  --output /etc/apt/keyrings/manty-apt.gpg deploy/apt/public.gpg.key
+sudo chmod 0644 /etc/apt/keyrings/manty-apt.gpg
+```
+
+업그레이드:
+
+```bash
+sudo apt update
+sudo apt install --only-upgrade gatewarden
+```
+
+### Rocky Linux / RHEL (dnf)
+
+패키지는 `https://nexus.manty.co.kr/repository/yum-hosted/gatewarden/`에 있습니다. RPM은 서명하지 않습니다.
 
 ```bash
 sudo tee /etc/yum.repos.d/gatewarden.repo >/dev/null <<'EOF'
@@ -28,7 +57,11 @@ EOF
 sudo dnf install gatewarden
 ```
 
-RPM은 기본적으로 서명하지 않습니다. 차단은 프로세스 안의 eBPF/XDP 맵으로 수행합니다.
+업그레이드:
+
+```bash
+sudo dnf upgrade gatewarden
+```
 
 ## 시작 전 검증
 
@@ -108,6 +141,10 @@ curl -s 127.0.0.1:9477/metrics
 ```
 
 `gatewarden_blocked_current`는 임시 차단과 영구 차단을 합친 수입니다. `gatewarden_permanent_current`와 `gatewarden_permanent{ip="..."}`는 영구 차단입니다. `gatewarden_block_until_seconds{ip="..."}`는 임시 차단의 만료 시각입니다.
+
+Grafana에서는 `deploy/grafana/gatewarden.json`을 가져옵니다. 가져올 때 Prometheus 데이터 소스를 고르면 됩니다. Job 변수 기본값은 `gatewarden`입니다. 화면의 누적 수는 gatewarden 프로세스가 다시 시작되면 0부터 셉니다.
+
+`deploy/grafana/alerting.yml`은 알림 규칙 세 개를 넣습니다. 지표 수집이 2분 이상 끊기거나, 영구 차단이 생기거나, 동시 차단이 25개를 10분 이상 넘으면 이미 만들어 둔 contact point `slack-manty-infra`로 알립니다. 이 파일은 contact point와 기본 notification policy를 바꾸지 않습니다. 다른 Grafana에 넣을 때는 파일 안의 Prometheus 데이터 소스 UID를 그 서버 값으로 바꿉니다. 파일을 `/etc/grafana/provisioning/alerting`에 두고 Grafana를 다시 시작합니다.
 
 ## 영구 차단
 

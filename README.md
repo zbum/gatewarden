@@ -2,6 +2,12 @@
 
 Gatewarden follows Linux OpenSSH authentication logs, counts failed logins per remote IP in a rolling window, and blocks repeat offenders with an eBPF/XDP IP map. A block expires after the ban duration. An address that keeps earning bans is blocked permanently.
 
+<p align="center">
+  <img src="docs/images/grafana-dashboard.png" width="880" alt="Gatewarden Grafana dashboard: current, temporary, and permanent blocks, SSH failures per minute, and the blocked-address tables">
+  <br>
+  <em>Who is blocked right now, which bans never expire, and how fast the scanners are failing. The board is <a href="deploy/grafana/gatewarden.json">deploy/grafana/gatewarden.json</a>.</em>
+</p>
+
 > Runtime support is Linux-only because enforcement uses eBPF/XDP. Cross-platform build targets are provided, but Windows and macOS binaries cannot enforce firewall bans.
 
 ## Build and test
@@ -16,7 +22,17 @@ make deb
 make rpm
 ```
 
-Docker 기반 deb/RPM 빌드, apt/yum 설치, Jenkins 릴리스 게시 흐름은 [INSTALL.md](INSTALL.md)를 참고하십시오.
+Install published packages from [https://nexus.manty.co.kr](https://nexus.manty.co.kr). Ubuntu uses the apt repository `apt-hosted` (`stable` `main`). Rocky and RHEL use the yum repository `yum-hosted/gatewarden/`. The first install leaves the service stopped. Steps, including the apt signing key, are in [INSTALL.md](INSTALL.md).
+
+```sh
+# Ubuntu
+sudo apt update && sudo apt install gatewarden
+
+# Rocky or RHEL
+sudo dnf install gatewarden
+```
+
+`sudo make install` installs a binary built from this checkout. Docker package builds and Jenkins publishing are also in [INSTALL.md](INSTALL.md).
 
 ## Run
 
@@ -63,10 +79,15 @@ Permanent bans and strike times are stored in `-state-file`. After a restart, pe
 
 Prometheus scrapes `http://127.0.0.1:9477/metrics`. `gatewarden_blocked_current` counts temporary and permanent blocks. `gatewarden_permanent_current` and `gatewarden_permanent{ip="..."}` describe permanent blocks. `gatewarden_block_until_seconds{ip="..."}` is the Unix expiry of each temporary block. `gatewarden_failures_total`, `gatewarden_blocks_total`, and `gatewarden_unblocks_total` count events since the process started. `gatewarden_unblocks_total` counts expiry only.
 
+[deploy/grafana/gatewarden.json](deploy/grafana/gatewarden.json) is the Grafana dashboard shown above. Import it and choose the Prometheus datasource. The job variable defaults to `gatewarden`. Counters on the dashboard reset when the process restarts.
+
+[deploy/grafana/alerting.yml](deploy/grafana/alerting.yml) provisions three alert rules: the `gatewarden` scrape is down, a permanent block exists, or more than 25 addresses are blocked at once. Each rule notifies the existing contact point `slack-manty-infra`. The file leaves contact points and the default notification policy unchanged. Replace the Prometheus datasource UID before provisioning it on another Grafana.
+
 ## systemd
 
+Install the package from Nexus, set `GATEWARDEN_INTERFACE` in `/etc/gatewarden/gatewarden.env`, then start the service:
+
 ```sh
-sudo make install
 sudo systemctl daemon-reload
 sudo systemctl enable --now gatewarden
 journalctl -u gatewarden -f
