@@ -63,6 +63,8 @@ Permanent bans and strike times are stored in `-state-file`. After a restart, pe
 
 Prometheus scrapes `http://127.0.0.1:9477/metrics`. `gatewarden_blocked_current` counts temporary and permanent blocks. `gatewarden_permanent_current` and `gatewarden_permanent{ip="..."}` describe permanent blocks. `gatewarden_block_until_seconds{ip="..."}` is the Unix expiry of each temporary block. `gatewarden_failures_total`, `gatewarden_blocks_total`, and `gatewarden_unblocks_total` count events since the process started. `gatewarden_unblocks_total` counts expiry only.
 
+[deploy/grafana/gatewarden.json](deploy/grafana/gatewarden.json) is a Grafana dashboard for these series. Import it and choose the Prometheus datasource. The job variable defaults to `gatewarden`. Counters on the dashboard reset when the process restarts.
+
 ## systemd
 
 ```sh
