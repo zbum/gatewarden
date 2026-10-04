@@ -45,6 +45,8 @@ func run() error {
 		switch os.Args[1] {
 		case "blocks":
 			return runBlocks(os.Args[2:])
+		case "sessions":
+			return runSessions(os.Args[2:])
 		case "unblock":
 			return runUnblock(os.Args[2:])
 		}
@@ -67,9 +69,9 @@ func run() error {
 	flag.DurationVar(&opts.permanentWindow, "permanent-window", permanentWindow, "how far back a ban still counts toward a permanent block; GATEWARDEN_PERMANENT_WINDOW is used when this flag is omitted")
 	flag.StringVar(&opts.allowlist, "allowlist", configuredValue(os.Getenv("GATEWARDEN_ALLOWLIST"), "127.0.0.0/8,::1/128"), "comma-separated IP addresses or CIDRs never blocked; GATEWARDEN_ALLOWLIST is used when this flag is omitted")
 	flag.StringVar(&opts.iface, "interface", configuredValue(os.Getenv("GATEWARDEN_INTERFACE"), ""), "Ethernet ingress interface for the eBPF/XDP block map; GATEWARDEN_INTERFACE is used when this flag is omitted")
-	flag.StringVar(&opts.metricsAddr, "metrics-addr", configuredValue(os.Getenv("GATEWARDEN_METRICS_ADDR"), defaultMetricsAddr), "host:port for /metrics and /blocks; GATEWARDEN_METRICS_ADDR is used when this flag is omitted")
+	flag.StringVar(&opts.metricsAddr, "metrics-addr", configuredValue(os.Getenv("GATEWARDEN_METRICS_ADDR"), defaultMetricsAddr), "host:port for /metrics, /blocks, and /sessions; GATEWARDEN_METRICS_ADDR is used when this flag is omitted")
 	flag.StringVar(&opts.stateFile, "state-file", configuredValue(os.Getenv("GATEWARDEN_STATE_FILE"), defaultStatePath), "permanent bans and recent ban times; GATEWARDEN_STATE_FILE is used when this flag is omitted")
-	flag.StringVar(&opts.socketPath, "socket", configuredValue(os.Getenv("GATEWARDEN_SOCKET"), defaultSocketPath), "unix socket for blocks and unblock; GATEWARDEN_SOCKET is used when this flag is omitted")
+	flag.StringVar(&opts.socketPath, "socket", configuredValue(os.Getenv("GATEWARDEN_SOCKET"), defaultSocketPath), "unix socket for blocks, sessions, and unblock; GATEWARDEN_SOCKET is used when this flag is omitted")
 	flag.BoolVar(&opts.dryRun, "dry-run", false, "log block changes without opening BPF objects")
 	flag.Parse()
 	if opts.window <= 0 || opts.threshold <= 0 || opts.banDuration <= 0 {
@@ -105,11 +107,12 @@ func run() error {
 			log.Printf("gatewarden: tear down firewall: %v", err)
 		}
 	}()
-	source := processSource{runner: runner}
+	var live processSource
+	live.runner = runner
 	if opts.logFile != "" {
-		source.name, source.args = "tail", []string{"-n", "0", "-F", opts.logFile}
+		live.name, live.args = "tail", []string{"-n", "0", "-F", opts.logFile}
 	} else {
-		source.name, source.args = "journalctl", []string{"--no-pager", "-n", "0", "-f", "-u", opts.journalUnit, "-o", "cat"}
+		live.name, live.args = "journalctl", []string{"--no-pager", "-n", "0", "-f", "-u", opts.journalUnit, "-o", "cat"}
 	}
 	mgr := newManager(opts.window, opts.threshold, opts.banDuration, allowlist, fw, realClock{}, log.Default())
 	mgr.configurePermanent(opts.permanentAfter, opts.permanentWindow, opts.stateFile)
@@ -139,7 +142,18 @@ func run() error {
 	}()
 	log.Printf("metrics: listening on %s", opts.metricsAddr)
 	log.Printf("control: listening on %s", opts.socketPath)
-	return serve(ctx, source, mgr, log.Default())
+	var watch sessionWatcher = idleWatcher{}
+	if opts.dryRun {
+		log.Printf("ssh sessions: dry-run, not attaching tracepoints")
+	} else {
+		started, err := startSSHSessions()
+		if err != nil {
+			return fmt.Errorf("watch ssh sessions: %w", err)
+		}
+		watch = started
+	}
+	defer watch.Close()
+	return serve(ctx, live, watch, mgr, log.Default())
 }
 
 func serveHTTP(name string, ln net.Listener, handler http.Handler) *http.Server {

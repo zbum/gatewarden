@@ -14,6 +14,16 @@ func (r outputRunner) Run(_ context.Context, _ string, _ []string, _ io.Reader, 
 	return err
 }
 
+type blockingRunner struct{ output string }
+
+func (r blockingRunner) Run(ctx context.Context, _ string, _ []string, _ io.Reader, stdout io.Writer) error {
+	if _, err := io.WriteString(stdout, r.output); err != nil {
+		return err
+	}
+	<-ctx.Done()
+	return nil
+}
+
 func TestProcessSourceStreamsLines(t *testing.T) {
 	source := processSource{runner: outputRunner{output: "first\nsecond\n"}, name: "fake"}
 	var lines []string

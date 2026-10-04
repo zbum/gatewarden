@@ -205,6 +205,59 @@ func TestBlocksFromStateListsPermanentBans(t *testing.T) {
 	}
 }
 
+func TestSessionsEndpointAndMetrics(t *testing.T) {
+	c := &fakeClock{now: time.Unix(1_700_000_100, 0).UTC()}
+	m := newManager(time.Minute, 1, time.Minute, nil, &recordingFirewall{}, c, log.New(io.Discard, "", 0))
+	since := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	m.openSession(sessionEvent{user: "root", addr: netip.MustParseAddr("192.0.2.10"), port: 54321, pid: 42, when: since})
+	var metrics bytes.Buffer
+	writeMetrics(&metrics, m.status())
+	text := metrics.String()
+	if got, ok := metricValue(text, "gatewarden_sessions_current"); !ok || got != 1 {
+		t.Fatalf("sessions current = %d, %v\n%s", got, ok, text)
+	}
+	want := `gatewarden_session_since_seconds{user="root",ip="192.0.2.10",port="54321"} ` + strconv.FormatInt(since.Unix(), 10)
+	if !strings.Contains(text, want) {
+		t.Fatalf("metrics missing %s\n%s", want, text)
+	}
+
+	srv := httptest.NewServer(newStatusHandler(m))
+	t.Cleanup(srv.Close)
+	resp, err := http.Get(srv.URL + "/sessions")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK || !strings.Contains(string(body), `"user":"root"`) || !strings.Contains(string(body), `"port":54321`) || !strings.Contains(string(body), `"pid":42`) {
+		t.Fatalf("sessions status=%d body=%s", resp.StatusCode, body)
+	}
+	sessions, err := fetchSessionsWith(t.Context(), http.DefaultClient, srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out strings.Builder
+	if err := printSessions(&out, sessions); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "root") || !strings.Contains(out.String(), "42") || !strings.Contains(out.String(), "PID") || !strings.Contains(out.String(), since.Format(time.RFC3339)) {
+		t.Fatalf("printed %q", out.String())
+	}
+	out.Reset()
+	if err := printSessions(&out, nil); err != nil {
+		t.Fatal(err)
+	}
+	if out.String() != "no open ssh sessions\n" {
+		t.Fatalf("empty print = %q", out.String())
+	}
+	if err := runSessions([]string{"-socket", filepath.Join(shortSocketDir(t), "missing.sock")}); err == nil || !strings.Contains(err.Error(), "open SSH sessions are known only while gatewarden is running") {
+		t.Fatal(err)
+	}
+}
+
 func TestPrometheusLabelEscapesQuotes(t *testing.T) {
 	if got := prometheusLabel(`a"b\c`); got != `"a\"b\\c"` {
 		t.Fatalf("label = %s", got)
