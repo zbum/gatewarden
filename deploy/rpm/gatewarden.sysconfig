@@ -7,3 +7,17 @@ GATEWARDEN_JOURNAL_UNIT=sshd
 
 # Comma-separated addresses or CIDRs that are never blocked.
 GATEWARDEN_ALLOWLIST=127.0.0.0/8,::1/128
+
+# Local address for Prometheus /metrics and the blocks list.
+GATEWARDEN_METRICS_ADDR=127.0.0.1:9477
+
+# Temporary bans inside this window that promote an address to a permanent block.
+# 0 disables permanent bans.
+GATEWARDEN_PERMANENT_AFTER=3
+GATEWARDEN_PERMANENT_WINDOW=24h
+
+# Permanent bans and recent ban times. Restored after restart.
+GATEWARDEN_STATE_FILE=/var/lib/gatewarden/state.json
+
+# Root-only socket for gatewarden blocks and gatewarden unblock.
+GATEWARDEN_SOCKET=/run/gatewarden/gatewarden.sock
