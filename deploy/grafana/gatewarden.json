@@ -44,7 +44,7 @@
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
       "id": 1,
       "options": {
         "colorMode": "background",
@@ -85,7 +85,7 @@
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
       "id": 2,
       "options": {
         "colorMode": "background",
@@ -125,7 +125,7 @@
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
       "id": 3,
       "options": {
         "colorMode": "background",
@@ -144,6 +144,47 @@
         }
       ],
       "title": "영구 차단",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "description": "지금 열려 있는 SSH 세션 수입니다.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "blue", "value": 1},
+              {"color": "yellow", "value": 3}
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "id": 13,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "expr": "sum(gatewarden_sessions_current{job=~\"$job\"}) or vector(0)",
+          "legendFormat": "sessions",
+          "refId": "A"
+        }
+      ],
+      "title": "접속 중",
       "type": "stat"
     },
     {
@@ -552,5 +593,5 @@
   "timezone": "browser",
   "title": "Gatewarden",
   "uid": "gatewarden",
-  "version": 3
+  "version": 4
 }

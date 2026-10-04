@@ -5,6 +5,7 @@
 - Watch open SSH sessions with eBPF tracepoints on `accept` and `accept4`, the following fork, and process exit. The user name comes from the session process login uid. `sshd` processes that already exist are read once from `/proc` at startup. `gatewarden sessions` and `GET /sessions` show the user, source IP, client port, process id, and start time. `gatewarden_sessions_current` and `gatewarden_session_since_seconds{user,ip,port}` expose the same list. Authentication failures still come from the journal or `-log-file`, and lines written before startup are not counted.
 - Read the accepted peer pointer from the `upeer_sockaddr` field of `sys_enter_accept` and `sys_enter_accept4`.
 - Grant the service `CAP_PERFMON`. The kernel rejects tracepoint programs without it, so startup exited after the XDP program had loaded.
+- Show `gatewarden_sessions_current` on the Grafana dashboard.
 
 ## 0.2.1 — 2026-10-04
 
