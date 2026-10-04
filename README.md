@@ -36,7 +36,7 @@ sudo dnf install gatewarden
 
 ## Run
 
-eBPF needs an Ethernet ingress interface, Linux XDP BPF-link support (upstream 5.9+), and `CAP_BPF` plus `CAP_NET_ADMIN`. Start with dry-run mode to validate settings without attaching the XDP program:
+eBPF needs an Ethernet ingress interface, Linux XDP BPF-link support (upstream 5.9+), and `CAP_BPF`, `CAP_NET_ADMIN`, and `CAP_PERFMON`. Start with dry-run mode to validate settings without attaching the XDP program:
 
 ```sh
 sudo ./dist/gatewarden-linux-amd64 -interface eth0 -dry-run -journal-unit ssh
@@ -57,12 +57,12 @@ Before enabling enforcement, add every administrator address or management netwo
 | `-permanent-window` | `24h`, or `GATEWARDEN_PERMANENT_WINDOW` | How far back a ban still counts toward a permanent block |
 | `-allowlist` | `127.0.0.0/8,::1/128`, or `GATEWARDEN_ALLOWLIST` | Comma-separated IP addresses or CIDRs never blocked |
 | `-interface` | `GATEWARDEN_INTERFACE` | Required Ethernet ingress interface for the XDP program |
-| `-metrics-addr` | `127.0.0.1:9477`, or `GATEWARDEN_METRICS_ADDR` | HTTP listen address for `/metrics` and the read-only blocks list |
+| `-metrics-addr` | `127.0.0.1:9477`, or `GATEWARDEN_METRICS_ADDR` | HTTP listen address for `/metrics`, `/blocks`, and `/sessions` |
 | `-state-file` | `/var/lib/gatewarden/state.json`, or `GATEWARDEN_STATE_FILE` | Permanent bans and recent ban times. Restored after restart |
-| `-socket` | `/run/gatewarden/gatewarden.sock`, or `GATEWARDEN_SOCKET` | Unix socket for `blocks` and `unblock`, mode 0600 |
+| `-socket` | `/run/gatewarden/gatewarden.sock`, or `GATEWARDEN_SOCKET` | Unix socket for `blocks`, `sessions`, and `unblock`, mode 0600 |
 | `-dry-run` | `false` | Log changes without opening BPF objects |
 
-The service recognizes common OpenSSH failed-password/public-key, invalid-user, PAM authentication-failure, and pre-authentication close records. Duplicate bans are suppressed and expired bans are removed.
+The service recognizes common OpenSSH failed-password/public-key, invalid-user, PAM authentication-failure, and pre-authentication close records. It also recognizes accepted logins and later disconnects. Duplicate bans are suppressed and expired bans are removed.
 
 ## Current blocks and metrics
 
@@ -77,9 +77,23 @@ sudo gatewarden unblock 203.0.113.10
 
 Permanent bans and strike times are stored in `-state-file`. After a restart, permanent bans are inserted into the new XDP map. A restart ends a temporary block immediately, while its strike still counts. When the daemon is stopped, `blocks` and `unblock` read and edit that file directly. `unblock` of an address that is not blocked returns an error.
 
-Prometheus scrapes `http://127.0.0.1:9477/metrics`. `gatewarden_blocked_current` counts temporary and permanent blocks. `gatewarden_permanent_current` and `gatewarden_permanent{ip="..."}` describe permanent blocks. `gatewarden_block_until_seconds{ip="..."}` is the Unix expiry of each temporary block. `gatewarden_failures_total`, `gatewarden_blocks_total`, and `gatewarden_unblocks_total` count events since the process started. `gatewarden_unblocks_total` counts expiry only.
+## Open SSH sessions
 
-[deploy/grafana/gatewarden.json](deploy/grafana/gatewarden.json) is the Grafana dashboard shown above. Import it and choose the Prometheus datasource. The job variable defaults to `gatewarden`. Counters on the dashboard reset when the process restarts.
+`sudo gatewarden sessions` lists SSH sessions open right now: user, source address, client port, process id, and the UTC time the connection started. Use it to look for a session you do not expect.
+
+```sh
+sudo gatewarden sessions
+```
+
+The command reads the mode 0600 socket and works only while the daemon is running. Sessions are not stored in the state file. On Linux the daemon attaches tracepoints to `accept` and `accept4` in `sshd` and `sshd-session`, then follows the forked process that inherits the socket until that process exits. A session is published after the process has a login uid. The user name comes from that uid. The recorded fields are the user, source address, client port, process id, and start time. Tracepoints report connections that accept after the daemon starts. Processes that already exist at startup are read once from `/proc`. `-dry-run` does not attach tracepoints. Allowlisted addresses are still listed; the allowlist only skips bans.
+
+Authentication failures still come from the journal unit, or from `-log-file`. The follow starts at the end of that stream, so a failure written before startup is not counted.
+
+`GET /sessions` on the metrics address and on the control socket returns the same rows as JSON. `gatewarden_sessions_current` is the number of open sessions. `gatewarden_session_since_seconds{user,ip,port}` is the Unix start time of each one.
+
+Prometheus scrapes `http://127.0.0.1:9477/metrics`. `gatewarden_blocked_current` counts temporary and permanent blocks. `gatewarden_permanent_current` and `gatewarden_permanent{ip="..."}` describe permanent blocks. `gatewarden_block_until_seconds{ip="..."}` is the Unix expiry of each temporary block. `gatewarden_sessions_current` and `gatewarden_session_since_seconds{user,ip,port}` describe SSH sessions open right now. `gatewarden_failures_total`, `gatewarden_blocks_total`, and `gatewarden_unblocks_total` count events since the process started. `gatewarden_unblocks_total` counts expiry only.
+
+[deploy/grafana/gatewarden.json](deploy/grafana/gatewarden.json) is the Grafana dashboard shown above. Import it and choose the Prometheus datasource. The job variable defaults to `gatewarden`. The dashboard includes the open-session count `gatewarden_sessions_current` and a table of those sessions. Re-import the file to see them. Counters on the dashboard reset when the process restarts.
 
 [deploy/grafana/alerting.yml](deploy/grafana/alerting.yml) provisions three alert rules: the `gatewarden` scrape is down, a permanent block exists, or more than 25 addresses are blocked at once. Each rule notifies the existing contact point `slack-manty-infra`. The file leaves contact points and the default notification policy unchanged. Replace the Prometheus datasource UID before provisioning it on another Grafana.
 
@@ -93,7 +107,7 @@ sudo systemctl enable --now gatewarden
 journalctl -u gatewarden -f
 ```
 
-The packaged unit reads `/etc/gatewarden/gatewarden.env` and passes no interface name of its own. Ubuntu packages default the journal unit to `ssh`. Rocky and RHEL packages default it to `sshd`. Set the interface to the host device, listed by `ip -br link`, before starting. The unit grants `CAP_BPF` and `CAP_NET_ADMIN`, allows unlimited locked memory, and uses a read-only filesystem view. `StateDirectory=gatewarden` and `RuntimeDirectory=gatewarden` provide `/var/lib/gatewarden` and `/run/gatewarden`. The unit restarts after unexpected failures. Packages deliberately do not enable or start Gatewarden. See [INSTALL.md](INSTALL.md).
+The packaged unit reads `/etc/gatewarden/gatewarden.env` and passes no interface name of its own. Ubuntu packages default the journal unit to `ssh`. Rocky and RHEL packages default it to `sshd`. Set the interface to the host device, listed by `ip -br link`, before starting. The unit grants `CAP_BPF`, `CAP_NET_ADMIN`, and `CAP_PERFMON`, allows unlimited locked memory, and uses a read-only filesystem view. `StateDirectory=gatewarden` and `RuntimeDirectory=gatewarden` provide `/var/lib/gatewarden` and `/run/gatewarden`. The unit restarts after unexpected failures. Packages deliberately do not enable or start Gatewarden. See [INSTALL.md](INSTALL.md).
 
 ## eBPF behavior and verification
 

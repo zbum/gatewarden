@@ -170,6 +170,6 @@ GATEWARDEN_SOCKET=/run/gatewarden/gatewarden.sock
 
 ## eBPF 차단
 
-탐지는 OpenSSH 인증 로그를 사용자 공간에서 읽습니다. 임계값을 넘긴 주소의 차단과 해제는 eBPF/XDP 맵만 갱신합니다. XDP BPF-link를 지원하는 Linux(업스트림 5.9 이상), Ethernet 인터페이스, `CAP_BPF`, `CAP_NET_ADMIN`이 필요합니다. Rocky/RHEL 8 기본 커널은 이 조건을 만족하지 않을 수 있으므로 대상 커널에서 먼저 검증하십시오. 붙이기에 실패하면 프로세스는 시작하지 않습니다.
+탐지는 OpenSSH 인증 로그를 사용자 공간에서 읽습니다. 임계값을 넘긴 주소의 차단과 해제는 eBPF/XDP 맵만 갱신합니다. XDP BPF-link를 지원하는 Linux(업스트림 5.9 이상), Ethernet 인터페이스, `CAP_BPF`, `CAP_NET_ADMIN`이 필요합니다. 열린 SSH 세션을 읽는 tracepoint 프로그램은 `CAP_PERFMON`이 추가로 필요합니다. Rocky/RHEL 8 기본 커널은 이 조건을 만족하지 않을 수 있으므로 대상 커널에서 먼저 검증하십시오. 붙이기에 실패하면 프로세스는 시작하지 않습니다.
 
 unit은 인터페이스 이름을 포함하지 않습니다. `GATEWARDEN_INTERFACE`가 비어 있으면 시작이 거절됩니다. eBPF는 지정한 인터페이스로 들어오는 차단 IP의 모든 패킷(기존 연결 및 포워딩 포함)을 버리며 TCP RST를 보내지는 않습니다. 프로세스 종료 시 커널이 링크와 맵을 회수합니다. 임시 차단은 그때 끝나고, 영구 차단은 다음 시작 때 상태 파일에서 다시 적용됩니다.

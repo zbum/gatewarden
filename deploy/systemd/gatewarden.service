@@ -16,8 +16,11 @@ ProtectHome=true
 PrivateTmp=true
 StateDirectory=gatewarden
 RuntimeDirectory=gatewarden
+# CAP_PERFMON is its own line. A systemd that does not know the name ignores the whole assignment.
 CapabilityBoundingSet=CAP_BPF CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_PERFMON
 AmbientCapabilities=CAP_BPF CAP_NET_ADMIN
+AmbientCapabilities=CAP_PERFMON
 LimitMEMLOCK=infinity
 
 [Install]

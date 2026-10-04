@@ -34,6 +34,7 @@ type manager struct {
 	bannedUntil     map[netip.Addr]time.Time
 	strikes         map[netip.Addr][]time.Time
 	permanentSince  map[netip.Addr]time.Time
+	sessions        map[sessionKey]sshSession
 	permanentAfter  int
 	permanentWindow time.Duration
 	statePath       string
@@ -47,6 +48,7 @@ func newManager(window time.Duration, threshold int, banDuration time.Duration, 
 		window: window, threshold: threshold, banDuration: banDuration, allowlist: allowlist, firewall: fw, clock: c, logger: logger,
 		failures: make(map[netip.Addr][]time.Time), bannedUntil: make(map[netip.Addr]time.Time),
 		strikes: make(map[netip.Addr][]time.Time), permanentSince: make(map[netip.Addr]time.Time),
+		sessions: make(map[sessionKey]sshSession),
 	}
 }
 
@@ -131,8 +133,22 @@ type blockStatus struct {
 	Permanent bool
 }
 
+type sessionKey struct {
+	addr netip.Addr
+	port uint16
+}
+
+type sshSession struct {
+	User  string
+	Addr  netip.Addr
+	Port  uint16
+	PID   int
+	Since time.Time
+}
+
 type statusSnapshot struct {
 	Blocks        []blockStatus
+	Sessions      []sshSession
 	FailuresTotal uint64
 	BlocksTotal   uint64
 	UnblocksTotal uint64
@@ -151,42 +167,105 @@ func (m *manager) status() statusSnapshot {
 	slices.SortFunc(blocks, func(a, b blockStatus) int {
 		return cmp.Compare(a.Addr.String(), b.Addr.String())
 	})
-	return statusSnapshot{Blocks: blocks, FailuresTotal: m.failuresTotal, BlocksTotal: m.blocksTotal, UnblocksTotal: m.unblocksTotal}
+	sessions := make([]sshSession, 0, len(m.sessions))
+	for _, session := range m.sessions {
+		sessions = append(sessions, session)
+	}
+	slices.SortFunc(sessions, func(a, b sshSession) int {
+		if c := a.Since.Compare(b.Since); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(a.Addr.String(), b.Addr.String()); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.Port, b.Port)
+	})
+	return statusSnapshot{Blocks: blocks, Sessions: sessions, FailuresTotal: m.failuresTotal, BlocksTotal: m.blocksTotal, UnblocksTotal: m.unblocksTotal}
 }
 
-func serve(ctx context.Context, source lineSource, manager *manager, logger *log.Logger) error {
+// openSession records an SSH connection. A repeated event for the same
+// source keeps the earlier timestamp and the first process id.
+func (m *manager) openSession(ev sessionEvent) (sshSession, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	key := sessionKey{addr: ev.addr, port: ev.port}
+	if prev, ok := m.sessions[key]; ok {
+		if !ev.when.IsZero() && ev.when.Before(prev.Since) {
+			prev.Since = ev.when
+			m.sessions[key] = prev
+		}
+		return m.sessions[key], false
+	}
+	when := ev.when
+	if when.IsZero() {
+		when = m.clock.Now()
+	}
+	session := sshSession{User: ev.user, Addr: ev.addr, Port: ev.port, PID: ev.pid, Since: when}
+	m.sessions[key] = session
+	return session, true
+}
+
+func (m *manager) closeSession(addr netip.Addr, port uint16) (sshSession, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	session, ok := m.sessions[sessionKey{addr: addr, port: port}]
+	if ok {
+		delete(m.sessions, sessionKey{addr: addr, port: port})
+	}
+	return session, ok
+}
+
+func applyLogLine(ctx context.Context, m *manager, logger *log.Logger, line string) {
+	addr, ok := parseFailure(line)
+	if !ok {
+		return
+	}
+	if err := m.RecordFailure(ctx, addr); err != nil {
+		logger.Printf("process failure from %s: %v", addr, err)
+	}
+}
+
+func serve(ctx context.Context, source lineSource, sessions sessionWatcher, manager *manager, logger *log.Logger) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
-	followErr := make(chan error, 1)
+	errCh := make(chan error, 2)
 	go func() {
-		followErr <- source.Follow(ctx, func(line string) error {
-			addr, ok := parseFailure(line)
-			if !ok {
-				return nil
-			}
-			if err := manager.RecordFailure(ctx, addr); err != nil {
-				logger.Printf("process failure from %s: %v", addr, err)
-			}
+		errCh <- source.Follow(ctx, func(line string) error {
+			applyLogLine(ctx, manager, logger, line)
 			return nil
 		})
+	}()
+	go func() {
+		errCh <- sessions.Run(ctx, manager, logger)
 	}()
 	for {
 		select {
 		case <-ctx.Done():
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			return manager.UnblockAll(shutdownCtx)
-		case err := <-followErr:
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if cleanupErr := manager.UnblockAll(shutdownCtx); cleanupErr != nil {
-				return errors.Join(err, cleanupErr)
-			}
-			return err
+			return stopFirewall(manager, nil, false)
+		case err := <-errCh:
+			return stopFirewall(manager, err, ctx.Err() == nil)
 		case <-ticker.C:
 			if err := manager.Expire(ctx); err != nil {
 				logger.Printf("expire blocks: %v", err)
 			}
 		}
 	}
+}
+
+func stopFirewall(manager *manager, err error, keepErr bool) error {
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cleanupErr := manager.UnblockAll(shutdownCtx)
+	if keepErr && err != nil {
+		return errors.Join(err, cleanupErr)
+	}
+	if cleanupErr != nil {
+		return cleanupErr
+	}
+	if keepErr {
+		return err
+	}
+	return nil
 }
