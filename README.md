@@ -1,5 +1,7 @@
 # Gatewarden
 
+**English** · [한국어](README.ko.md)
+
 Gatewarden follows Linux OpenSSH authentication logs, counts failed logins per remote IP in a rolling window, and blocks repeat offenders with an eBPF/XDP IP map. A block expires after the ban duration. An address that keeps earning bans is blocked permanently.
 
 <p align="center">
