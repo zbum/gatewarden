@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Show `gatewarden_sessions_current` on the Grafana dashboard.
+- Keep the operator documents in English. Korean pairs are [README.ko.md](README.ko.md), [INSTALL.ko.md](INSTALL.ko.md), and [AGENTS.ko.md](AGENTS.ko.md).
 
 ## 0.2.4 — 2026-10-05
 
