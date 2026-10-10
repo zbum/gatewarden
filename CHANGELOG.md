@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.5 — 2026-10-10
 
 - Show `gatewarden_sessions_current` on the Grafana dashboard.
 - Plot blocked addresses and open SSH sessions on a Grafana map. Each point is the center of the address country. Private addresses are omitted.
