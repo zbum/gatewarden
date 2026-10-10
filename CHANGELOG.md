@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Count only temporary blocks in the concurrent-block surge alert. Permanent blocks never expire, so they kept that alert firing after the total passed 25.
 - Keep the operator documents in English. Korean pairs are [README.ko.md](README.ko.md), [INSTALL.ko.md](INSTALL.ko.md), and [AGENTS.ko.md](AGENTS.ko.md).
 
 ## 0.2.5 — 2026-10-10

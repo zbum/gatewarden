@@ -12,8 +12,9 @@
 # point slack-manty-infra. Creating that contact point, and the default
 # route, stays outside this file.
 #
-# Ordinary SSH scan noise stays below these thresholds. A recent ubuntu-home
-# sample stayed near 10 concurrent blocks, so the surge rule uses 25.
+# Permanent blocks never expire, so they are not part of a surge. The surge
+# rule counts temporary blocks only and fires above 25 for 10 minutes. A
+# recent ubuntu-home sample of temporary blocks stayed under 11.
 
 apiVersion: 1
 
@@ -195,7 +196,7 @@ groups:
                 type: prometheus
                 uid: df4aiwvzgcu80e
               editorMode: code
-              expr: sum(gatewarden_blocked_current{job="gatewarden"})
+              expr: sum(gatewarden_blocked_current{job="gatewarden"}) - sum(gatewarden_permanent_current{job="gatewarden"})
               instant: true
               intervalMs: 15000
               legendFormat: blocked
@@ -251,8 +252,8 @@ groups:
         execErrState: Error
         for: 10m
         annotations:
-          summary: 동시에 차단된 주소가 25개를 10분 이상 넘겼습니다.
-          description: 평소 동시 차단은 이보다 적습니다. 대시보드의 지금 차단 패널에서 스캔이 몰렸는지, 차단이 풀리지 않는지 확인하세요.
+          summary: 임시 차단이 25개를 10분 이상 넘겼습니다.
+          description: 영구 차단은 세지 않습니다. 대시보드의 임시 차단 패널에서 스캔이 몰렸는지 확인하세요. 영구 차단은 별도 알림입니다.
         labels:
           severity: warning
           service: gatewarden
