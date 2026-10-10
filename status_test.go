@@ -258,6 +258,50 @@ func TestSessionsEndpointAndMetrics(t *testing.T) {
 	}
 }
 
+func TestIPLocationMetric(t *testing.T) {
+	orig := lookupCountry
+	t.Cleanup(func() { lookupCountry = orig })
+	lookupCountry = func(addr netip.Addr) string {
+		switch addr.String() {
+		case "203.0.113.8":
+			return "KR"
+		case "198.51.100.9":
+			return "JP"
+		default:
+			return ""
+		}
+	}
+	snapshot := statusSnapshot{
+		Blocks: []blockStatus{
+			{Addr: netip.MustParseAddr("203.0.113.8"), Permanent: true},
+			{Addr: netip.MustParseAddr("192.0.2.10")},
+		},
+		Sessions: []sshSession{
+			{Addr: netip.MustParseAddr("203.0.113.8"), Port: 1},
+			{Addr: netip.MustParseAddr("203.0.113.8"), Port: 2},
+			{Addr: netip.MustParseAddr("198.51.100.9"), Port: 3},
+		},
+	}
+	var metrics strings.Builder
+	writeLocations(&metrics, snapshot)
+	text := metrics.String()
+	for _, want := range []string{
+		`gatewarden_ip_location{ip="203.0.113.8",role="block",country="KR"} 1`,
+		`gatewarden_ip_location{ip="198.51.100.9",role="session",country="JP"} 1`,
+		`gatewarden_ip_location{ip="203.0.113.8",role="session",country="KR"} 1`,
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("missing %s\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "192.0.2.10") {
+		t.Fatalf("unknown address was mapped\n%s", text)
+	}
+	if strings.Count(text, `ip="203.0.113.8",role="session"`) != 1 {
+		t.Fatalf("session address was repeated\n%s", text)
+	}
+}
+
 func TestPrometheusLabelEscapesQuotes(t *testing.T) {
 	if got := prometheusLabel(`a"b\c`); got != `"a\"b\\c"` {
 		t.Fatalf("label = %s", got)

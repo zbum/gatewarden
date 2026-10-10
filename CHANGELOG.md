@@ -2,8 +2,13 @@
 
 ## Unreleased
 
-- Show `gatewarden_sessions_current` on the Grafana dashboard.
 - Keep the operator documents in English. Korean pairs are [README.ko.md](README.ko.md), [INSTALL.ko.md](INSTALL.ko.md), and [AGENTS.ko.md](AGENTS.ko.md).
+
+## 0.2.5 — 2026-10-10
+
+- Show `gatewarden_sessions_current` on the Grafana dashboard.
+- Plot blocked addresses and open SSH sessions on a Grafana map. Each point is the center of the address country. Private addresses are omitted.
+- Use CARTO Voyager raster tiles for the map background. Grafana 12's default basemap shows an API-key watermark.
 
 ## 0.2.4 — 2026-10-05
 
