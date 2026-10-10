@@ -97,7 +97,7 @@ Prometheus는 `http://127.0.0.1:9477/metrics`를 수집합니다. `gatewarden_bl
 
 [deploy/grafana/gatewarden.json](deploy/grafana/gatewarden.json)이 위 대시보드입니다. Prometheus 데이터 소스를 골라 가져옵니다. Job 변수 기본값은 `gatewarden`입니다. 대시보드에는 열린 세션 수 `gatewarden_sessions_current`와 그 세션 표가 있습니다. 보려면 파일을 다시 가져오십시오. 화면의 누적 수는 프로세스가 다시 시작되면 0부터 셉니다.
 
-[deploy/grafana/alerting.yml](deploy/grafana/alerting.yml)은 알림 규칙 세 개를 넣습니다. `gatewarden` 수집이 끊기거나, 영구 차단이 있거나, 한 번에 25개를 넘는 주소가 차단되면 이미 있는 contact point `slack-manty-infra`로 알립니다. 이 파일은 contact point와 기본 notification policy를 바꾸지 않습니다. 다른 Grafana에 넣을 때는 Prometheus 데이터 소스 UID를 그 서버 값으로 바꿉니다.
+[deploy/grafana/alerting.yml](deploy/grafana/alerting.yml)은 알림 규칙 세 개를 넣습니다. `gatewarden` 수집이 끊기거나, 영구 차단이 있거나, 임시 차단이 한 번에 25개를 넘으면 이미 있는 contact point `slack-manty-infra`로 알립니다. 영구 차단은 급증 수에 넣지 않습니다. 이 파일은 contact point와 기본 notification policy를 바꾸지 않습니다. 다른 Grafana에 넣을 때는 Prometheus 데이터 소스 UID를 그 서버 값으로 바꿉니다.
 
 ## systemd
 

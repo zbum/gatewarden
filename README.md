@@ -97,7 +97,7 @@ Prometheus scrapes `http://127.0.0.1:9477/metrics`. `gatewarden_blocked_current`
 
 [deploy/grafana/gatewarden.json](deploy/grafana/gatewarden.json) is the Grafana dashboard shown above. Import it and choose the Prometheus datasource. The job variable defaults to `gatewarden`. The dashboard includes the open-session count `gatewarden_sessions_current`, a table of those sessions, and a map of public blocked and session addresses at their country centers. Re-import the file to see them. Country data is IP2Location LITE, available from https://lite.ip2location.com. Counters on the dashboard reset when the process restarts.
 
-[deploy/grafana/alerting.yml](deploy/grafana/alerting.yml) provisions three alert rules: the `gatewarden` scrape is down, a permanent block exists, or more than 25 addresses are blocked at once. Each rule notifies the existing contact point `slack-manty-infra`. The file leaves contact points and the default notification policy unchanged. Replace the Prometheus datasource UID before provisioning it on another Grafana.
+[deploy/grafana/alerting.yml](deploy/grafana/alerting.yml) provisions three alert rules: the `gatewarden` scrape is down, a permanent block exists, or more than 25 addresses are temporarily blocked at once. Permanent blocks are not part of that surge. Each rule notifies the existing contact point `slack-manty-infra`. The file leaves contact points and the default notification policy unchanged. Replace the Prometheus datasource UID before provisioning it on another Grafana.
 
 ## systemd
 
