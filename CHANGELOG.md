@@ -4,6 +4,7 @@
 
 - Show `gatewarden_sessions_current` on the Grafana dashboard.
 - Plot blocked addresses and open SSH sessions on a Grafana map. Each point is the center of the address country. Private addresses are omitted.
+- Use CARTO Voyager raster tiles for the map background. Grafana 12's default basemap shows an API-key watermark.
 
 ## 0.2.4 — 2026-10-05
 

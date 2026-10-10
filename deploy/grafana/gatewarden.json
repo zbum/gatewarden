@@ -572,7 +572,14 @@
       "gridPos": {"h": 12, "w": 24, "x": 0, "y": 34},
       "id": 14,
       "options": {
-        "basemap": {"config": {}, "name": "Basemap", "type": "default"},
+        "basemap": {
+          "config": {
+            "attribution": "&copy; OpenStreetMap contributors, &copy; CARTO",
+            "url": "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_4g86_1_91b4dc0a7951a2e89a14d201"
+          },
+          "name": "Basemap",
+          "type": "xyz"
+        },
         "controls": {
           "mouseWheelZoom": true,
           "showAttribution": true,
@@ -666,5 +673,5 @@
   "timezone": "browser",
   "title": "Gatewarden",
   "uid": "gatewarden",
-  "version": 5
+  "version": 6
 }
