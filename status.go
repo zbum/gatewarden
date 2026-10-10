@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -165,6 +166,49 @@ func writeMetrics(w io.Writer, snapshot statusSnapshot) {
 			continue
 		}
 		fmt.Fprintf(w, "gatewarden_block_until_seconds{ip=%s} %d\n", label, block.Until.UTC().Unix())
+	}
+	writeLocations(w, snapshot)
+}
+
+type ipLocation struct {
+	role    string
+	ip      string
+	country string
+}
+
+func writeLocations(w io.Writer, snapshot statusSnapshot) {
+	seen := make(map[string]struct{})
+	var rows []ipLocation
+	add := func(role string, addr netip.Addr) {
+		country := lookupCountry(addr)
+		if country == "" {
+			return
+		}
+		ip := addr.String()
+		key := role + "\x00" + ip
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		rows = append(rows, ipLocation{role: role, ip: ip, country: country})
+	}
+	for _, block := range snapshot.Blocks {
+		add("block", block.Addr)
+	}
+	for _, session := range snapshot.Sessions {
+		add("session", session.Addr)
+	}
+	slices.SortFunc(rows, func(a, b ipLocation) int {
+		if a.role != b.role {
+			return strings.Compare(a.role, b.role)
+		}
+		return strings.Compare(a.ip, b.ip)
+	})
+	fmt.Fprintf(w, "# HELP gatewarden_ip_location 1 when a public IP is shown on the map by country.\n")
+	fmt.Fprintf(w, "# TYPE gatewarden_ip_location gauge\n")
+	for _, row := range rows {
+		fmt.Fprintf(w, "gatewarden_ip_location{ip=%s,role=%s,country=%s} 1\n",
+			prometheusLabel(row.ip), prometheusLabel(row.role), prometheusLabel(row.country))
 	}
 }
 

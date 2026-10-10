@@ -14,7 +14,8 @@
     {"type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0"},
     {"type": "panel", "id": "stat", "name": "Stat", "version": ""},
     {"type": "panel", "id": "timeseries", "name": "Time series", "version": ""},
-    {"type": "panel", "id": "table", "name": "Table", "version": ""}
+    {"type": "panel", "id": "table", "name": "Table", "version": ""},
+    {"type": "panel", "id": "geomap", "name": "Geomap", "version": ""}
   ],
   "annotations": {"list": []},
   "description": "OpenSSH 인증 실패로 차단된 주소. 누적 카운터는 gatewarden 프로세스가 다시 시작되면 0부터 셉니다. 영구 차단은 재시작 후에도 유지됩니다.",
@@ -563,6 +564,85 @@
         }
       ],
       "type": "table"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "description": "공개 차단 주소와 열린 SSH 세션을 그 IP가 속한 나라의 중심에 표시합니다. 도시 좌표는 아니고, 사설 주소는 빠집니다.",
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 12, "w": 24, "x": 0, "y": 34},
+      "id": 14,
+      "options": {
+        "basemap": {
+          "config": {
+            "attribution": "&copy; OpenStreetMap contributors, &copy; CARTO",
+            "url": "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_4g86_1_91b4dc0a7951a2e89a14d201"
+          },
+          "name": "Basemap",
+          "type": "xyz"
+        },
+        "controls": {
+          "mouseWheelZoom": true,
+          "showAttribution": true,
+          "showDebug": false,
+          "showMeasure": false,
+          "showScale": false,
+          "showZoom": true
+        },
+        "layers": [
+          {
+            "config": {
+              "showLegend": true,
+              "style": {
+                "color": {"fixed": "red"},
+                "opacity": 0.9,
+                "size": {"fixed": 8, "max": 15, "min": 2},
+                "symbol": {"fixed": "img/icons/marker/circle.svg", "mode": "fixed"}
+              }
+            },
+            "filterData": {"id": "byRefId", "options": "A"},
+            "location": {"gazetteer": "public/gazetteer/countries.json", "lookup": "country", "mode": "lookup"},
+            "name": "차단",
+            "tooltip": true,
+            "type": "markers"
+          },
+          {
+            "config": {
+              "showLegend": true,
+              "style": {
+                "color": {"fixed": "blue"},
+                "opacity": 0.9,
+                "size": {"fixed": 8, "max": 15, "min": 2},
+                "symbol": {"fixed": "img/icons/marker/circle.svg", "mode": "fixed"}
+              }
+            },
+            "filterData": {"id": "byRefId", "options": "B"},
+            "location": {"gazetteer": "public/gazetteer/countries.json", "lookup": "country", "mode": "lookup"},
+            "name": "세션",
+            "tooltip": true,
+            "type": "markers"
+          }
+        ],
+        "tooltip": {"mode": "details"},
+        "view": {"id": "zero", "lat": 20, "lon": 0, "zoom": 1}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "expr": "gatewarden_ip_location{job=~\"$job\",role=\"block\"}",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "expr": "gatewarden_ip_location{job=~\"$job\",role=\"session\"}",
+          "format": "table",
+          "instant": true,
+          "refId": "B"
+        }
+      ],
+      "title": "IP 위치",
+      "type": "geomap"
     }
   ],
   "refresh": "15s",
@@ -593,5 +673,5 @@
   "timezone": "browser",
   "title": "Gatewarden",
   "uid": "gatewarden",
-  "version": 4
+  "version": 6
 }
