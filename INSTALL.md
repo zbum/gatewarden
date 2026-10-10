@@ -146,7 +146,7 @@ curl -s 127.0.0.1:9477/metrics
 
 Import `deploy/grafana/gatewarden.json` into Grafana and choose the Prometheus datasource. The job variable defaults to `gatewarden`. Cumulative counts on the dashboard start again at 0 when the gatewarden process restarts.
 
-`deploy/grafana/alerting.yml` adds three alert rules. They notify the existing contact point `slack-manty-infra` when collection is down for 2 minutes, a permanent block appears, or more than 25 addresses stay blocked for 10 minutes. The file leaves contact points and the default notification policy unchanged. On another Grafana, replace the Prometheus datasource UID inside the file. Put the file in `/etc/grafana/provisioning/alerting` and restart Grafana.
+`deploy/grafana/alerting.yml` adds three alert rules. They notify the existing contact point `slack-manty-infra` when collection is down for 2 minutes, a permanent block appears, or more than 25 addresses stay temporarily blocked for 10 minutes. Permanent blocks are not part of that surge. The file leaves contact points and the default notification policy unchanged. On another Grafana, replace the Prometheus datasource UID inside the file. Put the file in `/etc/grafana/provisioning/alerting` and restart Grafana.
 
 ## Open SSH sessions
 

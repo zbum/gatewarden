@@ -146,7 +146,7 @@ curl -s 127.0.0.1:9477/metrics
 
 Grafana에서는 `deploy/grafana/gatewarden.json`을 가져옵니다. 가져올 때 Prometheus 데이터 소스를 고르면 됩니다. Job 변수 기본값은 `gatewarden`입니다. 화면의 누적 수는 gatewarden 프로세스가 다시 시작되면 0부터 셉니다.
 
-`deploy/grafana/alerting.yml`은 알림 규칙 세 개를 넣습니다. 지표 수집이 2분 이상 끊기거나, 영구 차단이 생기거나, 동시 차단이 25개를 10분 이상 넘으면 이미 만들어 둔 contact point `slack-manty-infra`로 알립니다. 이 파일은 contact point와 기본 notification policy를 바꾸지 않습니다. 다른 Grafana에 넣을 때는 파일 안의 Prometheus 데이터 소스 UID를 그 서버 값으로 바꿉니다. 파일을 `/etc/grafana/provisioning/alerting`에 두고 Grafana를 다시 시작합니다.
+`deploy/grafana/alerting.yml`은 알림 규칙 세 개를 넣습니다. 지표 수집이 2분 이상 끊기거나, 영구 차단이 생기거나, 임시 차단이 25개를 10분 이상 넘으면 이미 만들어 둔 contact point `slack-manty-infra`로 알립니다. 영구 차단은 급증 수에 넣지 않습니다. 이 파일은 contact point와 기본 notification policy를 바꾸지 않습니다. 다른 Grafana에 넣을 때는 파일 안의 Prometheus 데이터 소스 UID를 그 서버 값으로 바꿉니다. 파일을 `/etc/grafana/provisioning/alerting`에 두고 Grafana를 다시 시작합니다.
 
 ## 열린 SSH 세션
 
